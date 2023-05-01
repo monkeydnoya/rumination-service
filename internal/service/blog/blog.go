@@ -2,8 +2,6 @@ package blog
 
 import (
 	"encoding/json"
-	"fmt"
-	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -74,53 +72,23 @@ func (s Service) DeleteBlog(id string) error {
 
 func (s Service) DeserializeUserRemote() fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
-		var accessToken string
-		cookie := ctx.Cookies("access_token")
+		var accessToken string = ctx.Cookies("access_token")
 
-		authorizationHeader := ctx.Get("Authorization")
-		authHeaderString := fmt.Sprint(authorizationHeader)
-		fields := strings.Fields(authHeaderString)
-
-		if len(fields) != 0 && fields[0] == "Bearer" {
-			accessToken = fields[1]
-		} else if cookie != "" {
-			accessToken = cookie
-		}
 		a := fiber.AcquireAgent()
+		a.Cookie("access_token", accessToken)
 		defer fiber.ReleaseAgent(a)
 		req := a.Request()
 		req.SetRequestURI(configuration.Config("AUTH_HOST") + "/api/auth/validate")
-		req.Header.Set("Authorization", accessToken)
 		req.Header.SetMethod(fiber.MethodGet)
 		req.Header.Set("Content-Type", "application/json")
 
 		a.Parse()
 		_, b, _ := a.Bytes()
 
-		var valToken domain.ValidateToken
-		err := json.Unmarshal(b, &valToken)
+		var user domain.UserValidated
+		err := json.Unmarshal(b, &user)
 		if err != nil {
-			configuration.Logger.Error("user unauthorized", err)
-			return ctx.SendStatus(fiber.StatusUnauthorized)
-		}
-
-		queryString := fmt.Sprintf("id=%s", valToken.UserID)
-		fmt.Println(queryString)
-
-		userAgent := fiber.AcquireAgent()
-		userAgent.QueryString(queryString)
-		defer fiber.ReleaseAgent(userAgent)
-		userReq := userAgent.Request()
-		userReq.SetRequestURI(configuration.Config("AUTH_HOST") + "/api/auth/details/" + valToken.UserID)
-		userReq.Header.SetMethod(fiber.MethodGet)
-		userReq.Header.Set("Content-Type", "application/json")
-		userAgent.Parse()
-
-		_, body, _ := userAgent.Bytes()
-
-		var user DBResponse
-		err = json.Unmarshal(body, &user)
-		if err != nil {
+			configuration.Logger.Error("user unauthorized: ", err)
 			return ctx.SendStatus(fiber.StatusUnauthorized)
 		}
 
@@ -128,17 +96,3 @@ func (s Service) DeserializeUserRemote() fiber.Handler {
 		return ctx.Next()
 	}
 }
-
-// Rethink: Need to add to Middleware result cookie?
-// ctx.Cookie(&fiber.Cookie{
-// 	Name:     "email",
-// 	Value:    user.Email,
-// 	HTTPOnly: true,
-// 	SameSite: "lax",
-// })
-// ctx.Cookie(&fiber.Cookie{
-// 	Name:     "username",
-// 	Value:    user.UserName,
-// 	HTTPOnly: true,
-// 	SameSite: "lax",
-// })

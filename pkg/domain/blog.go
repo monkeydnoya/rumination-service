@@ -41,7 +41,12 @@ type DBResponse struct {
 	CreatedAt       time.Time          `json:"created_at" bson:"created_at"`
 }
 
-type ValidateToken struct {
-	AccessToken string `json:"accesstoken"`
-	UserID      string `json:"userid"`
+type UserValidated struct {
+	ID        string    `json:"id,omitempty"`
+	FirstName string    `json:"firstname"`
+	LastName  string    `json:"lastname"`
+	UserName  string    `json:"username"`
+	Email     string    `json:"email"`
+	Role      []string  `json:"role"`
+	CreatedAt time.Time `json:"created_at"`
 }
